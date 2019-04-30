@@ -38,3 +38,12 @@ if (game) {
         }
     });
 }
+
+var analyticsScript = document.createElement('script');
+analyticsScript.src = 'https://www.googletagmanager.com/gtag/js?id=UA-110826300-1';
+document.head.appendChild(analyticsScript);
+
+window.dataLayer = window.dataLayer || [];
+function gtag () { dataLayer.push(arguments); }
+gtag('js', new Date());
+gtag('config', 'UA-110826300-1');
