@@ -1,0 +1,220 @@
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+margin:0
+}
+.container{width:640px;height:480px}
+
+.container *{transition:.3s ease-in-out}
+.container{user-select:none;cursor:default;text-align:center;background-image:linear-gradient(to right, #337, #5db);color:#fff}
+.container a{color:inherit}
+
+.highscore{border:1px solid rgba(255,255,255,.5);width:calc(100% - 32px);
+height:calc(100% - 170px);overflow:auto;margin:16px}
+table{color:inherit;width:100%;table-layout:fixed;border-collapse:collapse}
+thead{border-bottom:1px solid rgba(255,255,255,.5)}
+td,th{padding:1em;text-align:left}
+
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;opacity:0;pointer-events:none}
+.screen.active{opacity:1;pointer-events:auto}
+
+button,input{display:block;width:200px;padding:16px;color:inherit;outline:0;margin:1em auto;
+background-color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.4)}
+button:hover,input:focus{background-color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.5)}
+button{cursor:pointer}
+.back{position:absolute;left:0;right:0;bottom:0}
+</style>
+
+<div class="container">
+<div id="menu" class="screen active">
+    <h1>RedSquare</h1>
+    <button onclick="changeScreen('play')">Play</button>
+    <button onclick="changeScreen('highscore')">High Score</button>
+    <button onclick="changeScreen('help')">Help</button>
+    <button onclick="changeScreen('credits')">Credits</button>
+    <button onclick="changeScreen('settings')">Settings</button>
+</div>
+<div id="play" class="screen">
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <button id="playBack" class="back" onclick="changeScreen('menu')">Back</button>
+</div>
+<div id="highscore" class="screen">
+    <h1>High Score</h1>
+    <div class="highscore">
+        <table>
+            <thead><tr><th>#</th><th>Name</th><th>Score</th></tr></thead>
+            <tbody id="highscore_table"></tbody>
+        </table>
+    </div>
+    <button class="back" onclick="changeScreen('menu')">Back</button>
+</div>
+<div id="help" class="screen">
+    <h1>Help</h1>
+    <p>RedSquare is an classic 2D action game.</p>
+    <p>Click and hold the red square.</p>
+    <p>Now move so that you neither touch the wall</p>
+    <p>nor get hit by any of the blue squares.</p>
+    <p>If you make it to 40 seconds,</p>
+    <p>you are doing brilliantly!</p>
+    <button class="back" onclick="changeScreen('menu')">Back</button>
+</div>
+<div id="credits" class="screen">
+    <h1>Credits</h1>
+    <h2>Game developer</h2>
+    <p><a href="http://bastiaan.plaatsoft.nl/">Bastiaan van der Plaat</a></p>
+    <h2>Game designer</h2>
+    <p><a href="http://bastiaan.plaatsoft.nl/">Bastiaan van der Plaat</a></p>
+    <h2>Music & Sound Effects</h2>
+    <p><a href="https://www.plaatsoft.nl/">Willem van der Plaat</a></p>
+    <button class="back" onclick="changeScreen('menu')">Back</button>
+</div>
+<div id="settings" class="screen">
+    <h1>Settings</h1>
+    <h3>Your name</h3>
+    <input type="text" name="name" value="Anonymous" maxlength="20">
+    <button class="back" onclick="changeScreen('menu')">Back</button>
+</div>
+</div>
+
+<script>
+"use strict";
+var canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d"),
+    w = canvas.width, h = canvas.height, e = (w > h ? w : h) / 20,
+    a, b, time, score, level, oldTime, newTime, addTime, playing, drag;
+ctx.textBaseline = "middle";
+
+var resources = "https://raw.githubusercontent.com/plaatsoft/redsquare-java/master/src/main/resources/";
+var effect1 = new Audio(); effect1.src = resources + "music/effect1.mp3";
+var effect2 = new Audio(); effect2.src = resources + "music/effect2.mp3";
+var music = new Audio(); music.src = resources + "music/music.mp3";
+music.loop = true;
+
+var q = document.querySelector("input");
+if (localStorage[q.name]) { q.value = localStorage[q.name] } else { localStorage[q.name] = q.value }
+q.oninput = function () { localStorage[this.name] = this.value };
+
+canvas.addEventListener("mousedown", function (event) {
+    if (playing) {
+        var x = event.layerX, y = event.layerY;
+        if (x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h) {
+            a.dx = x - a.x, a.dy = y - a.y, drag = true;
+        }
+    }
+});
+canvas.addEventListener("mousemove", function (event) {
+    if (playing && drag) {
+        a.x = event.layerX - a.dx;
+        a.y = event.layerY - a.dy;
+    }
+});
+canvas.addEventListener("mouseup", function () {
+    if (playing) drag = false;
+});
+
+function startGame() {
+    time = score = 0, level = 1, oldTime = Date.now(), addTime = 0, playing = true, drag = false,
+        a = { x: w / 2 - e, y: h / 2 - e, w: e * 2, h: e * 2 }, b = [{ x: 0, y: 0, w: e * 4, h: e * 2, dx: 1, dy: 1 }, { x: w - e * 3, y: 0, w: e * 3, h: e * 3, dx: -1, dy: 1 },
+        { x: 0, y: h - e * 4, w: e * 2, h: e * 4, dx: 1, dy: -1 }, { x: w - e * 4, y: h - e * 3, w: e * 4, h: e * 3, dx: -1, dy: -1 }];
+    draw();
+}
+
+function formatTime(s) {
+    var m = s / 60 | 0 % 60, s = s % 60;
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = e / 2 + "px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + score, e, e / 2);
+    ctx.textAlign = "center";
+    ctx.fillText("Time: " + formatTime(time), w / 2, e / 2);
+    ctx.textAlign = "right";
+    ctx.fillText("Level: " + level, w - e, e / 2);
+
+    ctx.fillStyle = "rgba(255, 255, 255, .3)";
+    ctx.fillRect(e, e, w - e * 2, h - e * 2);
+
+    ctx.fillStyle = "rgba(255, 0, 0, .6)";
+    ctx.fillRect(a.x, a.y, a.w, a.h);
+    if (a.x < e || a.x + a.w > w - e || a.y < e || a.y + a.h > h - e) playing = false;
+
+    ctx.fillStyle = "rgba(0, 0, 255, .6)";
+    for (var i = 0; i < b.length; i++) {
+        ctx.fillRect(b[i].x, b[i].y, b[i].w, b[i].h);
+        if (b[i].x + b[i].dx < 0 || b[i].x + b[i].dx > w - b[i].w) b[i].dx *= -1, effect1.play();
+        if (b[i].y + b[i].dy < 0 || b[i].y + b[i].dy > h - b[i].h) b[i].dy *= -1, effect1.play();
+        if (a.x < b[i].x + b[i].w && a.x + a.w > b[i].x && a.y < b[i].y + b[i].h && a.y + a.h > b[i].y) playing = false;
+        b[i].x += b[i].dx, b[i].y += b[i].dy;
+    }
+
+    if (playing) {
+        score += level;
+        if (addTime > 999) {
+            time++;
+            if (time % 10 == 0) {
+                level++;
+                for (var i = 0; i < b.length; i++) {
+                    b[i].dx > 0 ? b[i].dx++ : b[i].dx-- , b[i].dy > 0 ? b[i].dy++ : b[i].dy--;
+                }
+            }
+            addTime = 0;
+        }
+        newTime = Date.now(), addTime += newTime - oldTime, oldTime = newTime;
+        requestAnimationFrame(draw);
+    } else {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://bastiaan.plaatsoft.nl/webredsquare/highscore.php', true);
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.send('name=' + encodeURIComponent(localStorage.name) + '&score=' + encodeURIComponent(score));
+
+        effect2.play();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#fff";
+        ctx.font = "700 " + e * 1.5 + "px sans-serif";
+        ctx.fillText("Game Over!", w / 2, h / 2 - e * 2.25);
+
+        ctx.font = e + "px sans-serif";
+        ctx.fillText("Name: " + localStorage.name, w / 2, h / 2);
+        ctx.fillText("Score: " + score, w / 2, h / 2 + e * 2);
+
+        document.getElementById("playBack").style.display = "block";
+    }
+}
+
+function changeScreen(activeScreen) {
+    var e = document.querySelectorAll(".screen");
+    if (activeScreen == "play") {
+        if (!music.playing) music.play();
+        startGame();
+        document.getElementById("playBack").style.display = "none";
+    }
+    if (activeScreen == "highscore") {
+        document.getElementById("highscore_table").innerHTML = "<tr><td>Loading...</td></tr>";
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+            var data = JSON.parse(xhr.responseText);
+            document.getElementById("highscore_table").innerHTML = "";
+            for (var i = 0; i < data.length; i++) {
+                document.getElementById("highscore_table").innerHTML += "<tr><td>" + (i + 1) + "</td><td>" + data[i].name + "</td><td>" + data[i].score + "</td></tr>";
+            }
+        };
+        xhr.open("GET", "https://bastiaan.plaatsoft.nl/webredsquare/highscore.php");
+        xhr.send();
+    }
+    for (var i = 0; i < e.length; i++) {
+        if (e[i].id == activeScreen) {
+            e[i].classList.add("active");
+        } else {
+            e[i].classList.remove("active");
+        }
+    }
+}
+</script>

@@ -1,0 +1,180 @@
+<meta charset="utf-8">
+<title>Flappy Icarus</title>
+<style>
+body {
+  font: 16px/1.5 Segoe UI, sans-serif;
+  text-align: center;
+  background-color: white;
+  width:500px;
+  margin: auto;
+  padding: 1em;
+}
+
+a {
+  color: #16c;
+}
+canvas {
+  border: 4px solid black;
+  cursor: pointer;
+}
+
+button {
+  font: inherit;
+  padding: .5em 1em;
+}
+</style>
+<h1>🐦 Flappy 🐤 Icarus 🐦 v2.0 🐤</h1>
+<p>Klik om te springen, ontwijk de ⚡️ en pak de 🦅!</p>
+<canvas id="canvas" width="480" height="640"></canvas>
+<p>Dit spel maakt gebruik van emojies!<br>Voor het beste resultaat gebruik <b>Windows 10</b>!</p>
+<p><button id="btn">Verander je naam</button></p>
+<p>Gemaakt door <a href="https://bastiaan.plaatsoft.nl/" target="_blank">Bastiaan van der Plaat</a>, Ruben van Meijeren,<br> Jonah van Hoven en Mattheo de Wit.</p>
+<h2>Highscores</h2>
+<p>Hieronder staat de lijst van de <b>50</b> beste scores:</p>
+<ol id="list"><li>Loading...</li></ol>
+<script>
+"use strict";
+var canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d'),
+	list = document.getElementById('list'), e = 72, player, score, frame, gameover, obstacles, bg, eagles;
+ctx.textAlign = 'center', ctx.textBaseline = 'middle', ctx.lineWidth = 5;
+function rand (min, max) { return Math.floor(Math.random() * (max - min + 1)) + min }
+
+var jumpAudio = 'https://raw.githubusercontent.com/nebez/floppybird/gh-pages/assets/sounds/sfx_wing.ogg';
+var dieAudio = 'https://raw.githubusercontent.com/nebez/floppybird/gh-pages/assets/sounds/sfx_hit.ogg';
+var pointAudio = 'https://raw.githubusercontent.com/nebez/floppybird/gh-pages/assets/sounds/sfx_point.ogg';
+var fallAudio = 'https://raw.githubusercontent.com/nebez/floppybird/gh-pages/assets/sounds/sfx_die.ogg';
+
+function component(x, y, width, height, color, text) {
+  this.x = x;
+  this.y = y;
+  this.width = width;
+  this.height = height;
+  this.color = color;
+  this.gravity = 0.2;
+  this.gravitySpeed = 0;
+  this.text = text;
+	this.draw = function() {
+		if (this.color) ctx.fillStyle = this.color, ctx.fillRect(this.x, this.y, this.width, this.height);
+    if (this.text) ctx.fillStyle = '#000', ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2);
+	};
+	this.jump = function() { new Audio(jumpAudio).play(), this.gravitySpeed = -6;};
+  this.die = function(a) {
+    new Audio(dieAudio).play(); if (!a) setTimeout(function () { new Audio(fallAudio).play(); }, 160); this.gravitySpeed = 10, gameover = true;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'https://bastiaan.plaatsoft.nl/flappyicarus/highscore.php', true);
+    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    xhr.send('name=' + encodeURIComponent(localStorage.name) + '&score=' + encodeURIComponent(score));
+   };
+	this.calcPos = function() {
+ 	 this.gravitySpeed += this.gravity;
+ 	 this.y += this.gravitySpeed;
+ 	 if (this.y < 0 && !gameover) player.die();
+ 	 if (this.y > canvas.height - this.height - e / 2 && !gameover) this.die(true);
+   if (this.y > canvas.height - this.height) this.y = canvas.height - this.height;
+	};
+  this.crashWith = function(component) {
+    return (this.x > component.x + component.width) ||
+    	(this.x + this.width < component.x) ||
+      (this.y > component.y + component.height) ||
+      (this.y + this.height < component.y);
+  };
+}
+
+function start() {
+	player = new component(canvas.width / 2 - e / 2, canvas.height / 2 - e / 2, e, e, false, '👱🏻'),
+	score = 0, frame = 0, gameover = false, obstacles = [], eagles = [], bg = [
+    new component(0, rand(0, e * 2), e, e, false, '☁️'),
+    new component(canvas.width / 3, rand(0, e * 2), e, e, false, '☁️'),
+    new component(canvas.width / 3 * 2, rand(0, e * 2), e, e, false, '☁️'),
+    new component(0, canvas.height - e / 2, canvas.width / 3, e / 2, '#18f', '🌊'),
+    new component(canvas.width / 3, canvas.height - e / 2, canvas.width / 3, e / 2, '#18f', '🌊'),
+    new component(canvas.width / 3 * 2, canvas.height - e / 2, canvas.width / 3, e / 2, '#18f', '🌊')
+  ];
+}
+
+function jumpEvent(event) {
+	event.preventDefault();
+	if (gameover) {
+  	start();
+  } else {
+  	player.jump();
+  }
+}
+canvas.addEventListener('mousedown', jumpEvent);
+canvas.addEventListener('touchstart', jumpEvent);
+window.addEventListener('keypress', jumpEvent);
+
+var air = new component(0, 0, canvas.width, canvas.height, '#7cf');
+var sun = new component(canvas.width - e * 1.5, e / 2, e, e, false, '☀️');
+
+function draw() {
+	requestAnimationFrame(draw);
+  air.draw();
+
+  if (!gameover && (frame / 160) % 1 == 0) {
+    bg.push(new component(canvas.width, canvas.height - e / 2, canvas.width / 3, e / 2, '#18f', '🌊'));
+    bg.push(new component(canvas.width, rand(0, e * 2), e, e, false, '☁️'));
+    if (frame != 0) { sun.x -= 1;
+      var gap = e * 2 - Math.round((frame / 320) * (e / rand(8, 12))), height = rand(e, canvas.height - gap);
+      if (height - gap > e) obstacles.push(new component(canvas.width, 0, e, height - gap, 'rgba(255, 255, 0, .95)', '⚡️'));
+      if (rand(1, 3) == 1) eagles.push(new component(canvas.width, height - gap / rand(2, 4), e, e, false, '🦅'));
+      if (canvas.height - height - gap > e) obstacles.push(new component(canvas.width, height + gap, e, canvas.height - height - gap, 'rgba(255, 255, 0, .95)', '⚡️'));
+    }
+  }
+
+  ctx.font = '700 ' + e + 'px Segoe UI,sans-serif';
+  sun.draw();
+  for (var i = 0; i < bg.length; i++) {
+    if (bg[i].x + bg[i].width < 0) bg.splice(i, 1);
+    if (!gameover) bg[i].x -= 1;
+    bg[i].draw();
+  }
+  for (var i = 0; i < eagles.length; i++) {
+    if (eagles[i].x + eagles[i].width < 0) eagles.splice(i, 1);
+    if (!gameover) eagles[i].x -= 3;
+    if (!eagles[i].crashWith(player)) eagles.splice(i, 1), new Audio(pointAudio).play(), score++;
+    eagles[i].draw();
+  }
+
+  ctx.font = '700 ' + e / 3 * 2 + 'px Segoe UI,sans-serif';
+  for (var i = 0, oldX = 0; i < obstacles.length; i++) {
+    if (obstacles[i].x + obstacles[i].width < 0) obstacles.splice(i, 1);
+    if (!gameover && obstacles[i].x + obstacles[i].width / 2 == player.x + player.width / 2 && obstacles[i].x != oldX) new Audio(pointAudio).play(), score++;
+    oldX = obstacles[i].x;
+    if (!obstacles[i].crashWith(player) && !gameover) player.die();
+    if (!gameover) obstacles[i].x -= 2;
+    obstacles[i].draw();
+  }
+
+  ctx.font = '700 ' + e + 'px Segoe UI,sans-serif';
+  player.calcPos();
+  player.draw();
+
+  ctx.fillStyle = 'white';
+  ctx.fillText(score, canvas.width / 2, e);
+  ctx.strokeText(score, canvas.width / 2, e);
+
+  frame++;
+}
+
+function fetchHighscores() {
+	var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+   list.innerHTML = xhr.responseText;
+   setTimeout(fetchHighscores, 4000);
+  };
+  xhr.open('GET', 'https://bastiaan.plaatsoft.nl/flappyicarus/highscore.php', true);
+  xhr.send();
+}
+fetchHighscores();
+
+function changeName () {
+	var name = prompt('Wat is je naam?', localStorage.name ? localStorage.name : 'Anoniem');
+  if (!name) name = 'Anoniem';
+	localStorage.name = name;
+}
+document.getElementById('btn').addEventListener('click', changeName);
+if (!localStorage.name) changeName();
+start();
+draw();
+</script>

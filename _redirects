@@ -1,2 +1,0 @@
-# Redirect default Netlify subdomain to primary domain
-https://plaatgames.netlify.com/* https://plaatgames.ml/:splat 301!
